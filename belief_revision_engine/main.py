@@ -54,6 +54,77 @@ def show_entailment(label: str, bb: BeliefBase, query):
     print(f"  {label} {sym} {query}  →  {'YES' if result else 'NO'}")
 
 
+def prompt_formula(prompt: str):
+    """Read and parse a single formula from stdin."""
+    while True:
+        raw = input(prompt).strip()
+        if not raw:
+            print("  Please enter a formula.")
+            continue
+        try:
+            return parse(raw)
+        except ValueError as exc:
+            print(f"  Parse error: {exc}")
+            print("  Examples: p, ~p, (p & q), (p => q), (p <=> q)")
+
+
+def prompt_belief_base():
+    """Build a belief base from comma-separated user input."""
+    while True:
+        raw = input("Enter beliefs separated by commas (example: p, (p => q), r): ").strip()
+        if not raw:
+            return BeliefBase([])
+        parts = [part.strip() for part in raw.split(",") if part.strip()]
+        try:
+            return BeliefBase([parse(part) for part in parts])
+        except ValueError as exc:
+            print(f"  Parse error: {exc}")
+            print("  Please try again with fully parenthesised binary formulas.")
+
+
+def run_interactive_mode():
+    """Simple interactive shell for testing belief change operations."""
+    section("INTERACTIVE MODE")
+    print("Type your own belief base and try expansion, contraction, revision, or entailment.")
+    print("Type 'exit' at the action prompt to leave interactive mode.")
+
+    bb = prompt_belief_base()
+
+    while True:
+        print("\nCurrent belief base:")
+        show_bb("B", bb)
+        print(f"  Consistent? {bb.is_consistent()}")
+        action = input("\nChoose action [expand / contract / revise / entails / reset / exit]: ").strip().lower()
+
+        if action == "exit":
+            print("Leaving interactive mode.")
+            return
+        if action == "reset":
+            bb = prompt_belief_base()
+            continue
+        if action == "expand":
+            phi = prompt_formula("Enter φ for B + φ: ")
+            bb = bb.expand(phi)
+            print(f"  Result: B + {phi} = {bb}")
+            continue
+        if action == "contract":
+            phi = prompt_formula("Enter φ for B ÷ φ: ")
+            bb = bb.contract(phi)
+            print(f"  Result: B ÷ {phi} = {bb}")
+            continue
+        if action == "revise":
+            phi = prompt_formula("Enter φ for B * φ: ")
+            bb = bb.revise(phi)
+            print(f"  Result: B * {phi} = {bb}")
+            continue
+        if action == "entails":
+            phi = prompt_formula("Enter query φ to test whether B entails φ: ")
+            show_entailment("B", bb, phi)
+            continue
+
+        print("  Unknown action. Please choose expand, contract, revise, entails, reset, or exit.")
+
+
 # ---------------------------------------------------------------------------
 # Part 1: Basic formula parsing and CNF demonstration
 # ---------------------------------------------------------------------------
@@ -264,15 +335,19 @@ def demo_agm_tests():
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    print("╔══════════════════════════════════════════════════════════════════╗")
-    print("║       BELIEF REVISION ENGINE — DTU 02180 Assignment 2026        ║")
-    print("╚══════════════════════════════════════════════════════════════════╝")
+    print("        ══════════════════════════════════════════════════        ")
+    print("        BELIEF REVISION ENGINE — DTU 02180 Assignment 2026        ")
+    print("        ══════════════════════════════════════════════════        ")
 
-    demo_parsing()
-    demo_resolution()
-    demo_belief_base()
-    demo_agm_tests()
+    # Demo functions kept for reference, but disabled for normal use.
+    # demo_parsing()
+    # demo_resolution()
+    # demo_belief_base()
+    # demo_agm_tests()
+    #
+    # print("\n" + "=" * 70)
+    # print("  Demo complete.")
+    # print("=" * 70)
 
-    print("\n" + "=" * 70)
-    print("  Demo complete.")
-    print("=" * 70)
+    if sys.stdin.isatty():
+        run_interactive_mode()
