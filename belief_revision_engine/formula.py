@@ -1,34 +1,15 @@
 """
-formula.py  –  Propositional formula representation, parser, and pretty-printer.
+Propositional formula classes and parser.
 
-Formula classes (AST nodes) follow the syntax of propositional logic as presented
-in AIMA Chapter 7 (Russell & Norvig) and DTU course 02180, slides 08 and 09.
-
-Supported input syntax (strings passed to parse()):
-    Atoms       : single lowercase letters or words,  e.g.  "p",  "rain"
-    Negation    : "~p"
-    Conjunction : "(p & q)"
-    Disjunction : "(p | q)"
-    Implication : "(p => q)"
-    Biconditional: "(p <=> q)"
-
-All binary operators must be fully parenthesised when parsed from a string.
-Negation may be applied without extra parentheses: "~p", "~(p & q)".
+Atoms are lowercase words. Binary operators need parens: (p & q), (p => q), etc.
 """
 
 
-# ---------------------------------------------------------------------------
-# AST node classes
-# ---------------------------------------------------------------------------
-
 class Formula:
-    """Abstract base class for all propositional formulas."""
     pass
 
 
 class Atom(Formula):
-    """An atomic proposition symbol, e.g. Atom('p')."""
-
     def __init__(self, name: str):
         self.name = name
 
@@ -43,7 +24,7 @@ class Atom(Formula):
 
 
 class Not(Formula):
-    """Negation:  ~operand."""
+    """Negation: ~operand."""
 
     def __init__(self, operand: Formula):
         self.operand = operand
@@ -59,7 +40,7 @@ class Not(Formula):
 
 
 class And(Formula):
-    """Conjunction:  (left & right)."""
+    """Conjunction: (left & right)."""
 
     def __init__(self, left: Formula, right: Formula):
         self.left = left
@@ -76,7 +57,7 @@ class And(Formula):
 
 
 class Or(Formula):
-    """Disjunction:  (left | right)."""
+    """Disjunction: (left | right)."""
 
     def __init__(self, left: Formula, right: Formula):
         self.left = left
@@ -93,7 +74,7 @@ class Or(Formula):
 
 
 class Implies(Formula):
-    """Implication:  (antecedent => consequent)."""
+    """Implication: (antecedent => consequent)."""
 
     def __init__(self, antecedent: Formula, consequent: Formula):
         self.antecedent = antecedent
@@ -112,7 +93,7 @@ class Implies(Formula):
 
 
 class Biconditional(Formula):
-    """Biconditional:  (left <=> right)."""
+    """Biconditional: (left <=> right)."""
 
     def __init__(self, left: Formula, right: Formula):
         self.left = left
@@ -130,15 +111,7 @@ class Biconditional(Formula):
         return hash(('Biconditional', self.left, self.right))
 
 
-# ---------------------------------------------------------------------------
-# Tokeniser
-# ---------------------------------------------------------------------------
-
 def _tokenise(text: str):
-    """Return a list of tokens from a formula string.
-
-    Tokens are: '(', ')', '~', '&', '|', '=>', '<=>', and atom names.
-    """
     tokens = []
     i = 0
     while i < len(text):
@@ -177,13 +150,7 @@ def _tokenise(text: str):
     return tokens
 
 
-# ---------------------------------------------------------------------------
-# Recursive-descent parser
-# ---------------------------------------------------------------------------
-
 class _Parser:
-    """LL(1) recursive-descent parser for propositional formulas."""
-
     def __init__(self, tokens):
         self.tokens = tokens
         self.pos = 0
@@ -207,25 +174,20 @@ class _Parser:
         return result
 
     def _parse_formula(self) -> Formula:
-        """Parse a complete formula."""
         tok = self.peek()
-
         if tok == '~':
-            # Negation: ~<formula>
             self.consume('~')
             operand = self._parse_atom_or_paren()
             return Not(operand)
         elif tok == '(':
             return self._parse_paren()
         elif tok is not None and (tok.isalpha() or tok[0] == '_'):
-            # Atom
             name = self.consume()
             return Atom(name)
         else:
             raise ValueError(f"Unexpected token '{tok}'")
 
     def _parse_atom_or_paren(self) -> Formula:
-        """Parse either an atom, a parenthesised formula, or another negation."""
         tok = self.peek()
         if tok == '(':
             return self._parse_paren()
@@ -240,11 +202,9 @@ class _Parser:
             raise ValueError(f"Unexpected token '{tok}' in atom/paren position")
 
     def _parse_paren(self) -> Formula:
-        """Parse a parenthesised binary formula: ( LHS OP RHS )."""
         self.consume('(')
         left = self._parse_formula()
         op = self.peek()
-
         if op in ('&', '|', '=>', '<=>'):
             self.consume(op)
             right = self._parse_formula()
@@ -255,36 +215,17 @@ class _Parser:
                 return Or(left, right)
             elif op == '=>':
                 return Implies(left, right)
-            else:  # '<=>'
+            else:
                 return Biconditional(left, right)
         elif op == ')':
-            # (formula) — just grouping
             self.consume(')')
             return left
         else:
             raise ValueError(f"Expected binary operator inside parentheses, got '{op}'")
 
 
-# ---------------------------------------------------------------------------
-# Public API
-# ---------------------------------------------------------------------------
-
 def parse(text: str) -> Formula:
-    """Parse a formula string into a Formula AST.
-
-    Examples
-    --------
-    >>> parse("p")
-    p
-    >>> parse("~p")
-    ~p
-    >>> parse("(p & q)")
-    (p & q)
-    >>> parse("(p => q)")
-    (p => q)
-    >>> parse("(p <=> q)")
-    (p <=> q)
-    """
+    """Parse a formula string into a Formula object."""
     tokens = _tokenise(text.strip())
     if not tokens:
         raise ValueError("Empty formula string")
@@ -293,12 +234,11 @@ def parse(text: str) -> Formula:
 
 
 def pretty(formula: Formula) -> str:
-    """Return a human-readable string for *formula* (same as repr for now)."""
     return repr(formula)
 
 
 def atoms(formula: Formula) -> set:
-    """Return the set of all atom names occurring in *formula*."""
+    """Return all atom names occurring in a formula."""
     if isinstance(formula, Atom):
         return {formula.name}
     elif isinstance(formula, Not):
@@ -311,14 +251,5 @@ def atoms(formula: Formula) -> set:
 
 
 def logically_equivalent(f1: Formula, f2: Formula) -> bool:
-    """Check whether f1 and f2 are logically equivalent by checking f1 <=> f2 is a tautology.
-
-    Uses the resolution-based entailment checker from resolution.py.
-    Imported lazily to avoid circular imports.
-    """
     from resolution import pl_resolution
-    # f1 ≡ f2  iff  |= (f1 <=> f2)
-    # which is equivalent to: {} |= (f1 <=> f2)
-    # i.e., (f1 <=> f2) is a tautology
-    # We check: ~(f1 <=> f2) is unsatisfiable, i.e., entailed by empty KB
     return pl_resolution([], Biconditional(f1, f2))
